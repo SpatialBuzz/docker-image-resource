@@ -120,6 +120,7 @@ load_tag=$(jq -r '.params.load_tag // "latest"' < $payload)
 import_file=$(jq -r '.params.import_file // ""' < $payload)
 
 pull_repository=$(jq -r '.params.pull_repository // ""' < $payload)
+ecr_repository_auths=$(jq -r '.params.ecr_repository_auths // empty' < $payload)
 pull_tag=$(jq -r '.params.pull_tag // "latest"' < $payload)
 target_name=$(jq -r '.params.target_name // ""' < $payload)
 
@@ -170,6 +171,12 @@ elif [ -n "$build" ]; then
   fi
 
   cache_from="${cache_from_args[@]}"
+
+  if [ -n "$ecr_repository_auths" ]; then
+    for ecr_auth in $(echo $ecr_repository_auths | jq -r '.[]'); do 
+      echo $ecr_auth | docker-credential-ecr-login get
+    done
+  fi
 
   expanded_build_args=()
 
@@ -236,21 +243,6 @@ elif [ -n "$build" ]; then
   if [ -n "${target_name}" ]; then
    target+=("--target")
    target+=("${target_name}")
-  fi
-
-  ECR_REGISTRY_PATTERN='/[a-zA-Z0-9][a-zA-Z0-9_-]*\.dkr\.ecr\.[a-zA-Z0-9][a-zA-Z0-9_-]*\.amazonaws\.com(\.cn)?[^ ]*/'
-  ecr_images=$(egrep '^\s*FROM|^\s*ARG' ${dockerfile} | \
-             awk "match(\$0,${ECR_REGISTRY_PATTERN}){print substr(\$0, RSTART, RLENGTH)}" )
-  if [ -n "$ecr_images" ]; then
-    for ecr_image in $ecr_images
-    do
-      # pull will perform an authentication process needed for ECR
-      # there is an experimental endpoint to support long running sessions
-      # docker cli does not support it yet though
-      # see https://github.com/moby/moby/pull/32677
-      # and https://github.com/awslabs/amazon-ecr-credential-helper/issues/9
-      docker pull "${ecr_image}"
-    done    
   fi
 
   docker build -t "${repository}:${tag_name}" "${target[@]}" "${expanded_build_args[@]}" "${expanded_labels[@]}" -f "$dockerfile" $cache_from "$build"
