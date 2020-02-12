@@ -16,7 +16,8 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/pivotal-golang/lager"
-
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	ecrapi "github.com/awslabs/amazon-ecr-credential-helper/ecr-login/api"
 	"github.com/concourse/retryhttp"
@@ -43,7 +44,17 @@ func main() {
 
 	os.Setenv("AWS_ACCESS_KEY_ID", request.Source.AWSAccessKeyID)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", request.Source.AWSSecretAccessKey)
-	os.Setenv("AWS_SESSION_TOKEN", request.Source.AWSSessionToken)
+	// os.Setenv("AWS_SESSION_TOKEN", request.Source.AWSSessionToken)
+	// os.Setenv("AWS_ROLE", request.Source.AWSRole)
+	sess := session.Must(session.NewSession())
+	creds := stscreds.NewCredentials(sess, request.Source.AWSRole)
+
+	c, err := creds.Get()
+	
+	os.Setenv("AWS_ACCESS_KEY_ID", c.AccessKeyID)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", c.SecretAccessKey)
+	os.Setenv("AWS_SESSION_TOKEN", c.SessionToken)
+
 
 	// silence benign ecr-login errors/warnings
 	seelog.UseLogger(seelog.Disabled)

@@ -21,7 +21,11 @@ RUN apk --no-cache add \
       ca-certificates \
       xz \
       util-linux \
+      python \
+      py-pip ; \
+      pip install awscli --user \
     ;
+ENV PATH=$PATH:/root/.local/bin/
 COPY --from=builder /assets /opt/resource
 RUN ln -s /opt/resource/ecr-login /usr/local/bin/docker-credential-ecr-login
 
@@ -29,6 +33,7 @@ RUN ln -s /opt/resource/ecr-login /usr/local/bin/docker-credential-ecr-login
 FROM resource AS tests
 COPY --from=builder /tests /tests
 ADD . /docker-image-resource
+#RUN /tests/tests.test -ginkgo.v
 RUN set -e; \
     for test in /tests/*.test; do \
       $test -ginkgo.v; \
